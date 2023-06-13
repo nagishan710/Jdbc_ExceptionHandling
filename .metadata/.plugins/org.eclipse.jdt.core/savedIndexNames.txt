@@ -1,0 +1,5 @@
+INDEX VERSION 1.131+E:\JDBC_ExceptionHandling\.metadata\.plugins\org.eclipse.jdt.core
+1039691412.index
+1865797976.index
+3730227373.index
+633977674.index

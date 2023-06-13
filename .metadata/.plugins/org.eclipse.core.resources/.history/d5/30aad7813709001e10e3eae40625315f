@@ -1,0 +1,177 @@
+package com.movie;
+
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.Scanner;
+
+public class MovieControl {
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/movie";
+    private static final String DB_USER = "roo";
+    private static final String DB_PASSWORD = "root";
+
+    public static void main(String[] args) {
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+            System.out.println("Connected to the database.");
+
+            // Create the Movies table if it doesn't exist
+            createMoviesTable(conn);
+
+            Scanner scanner = new Scanner(System.in);
+            System.out.println("Enter the movie details:");
+            System.out.print("Movie Name: ");
+            String movieName = scanner.nextLine();
+            System.out.print("Release Date: ");
+            String releaseDate = scanner.nextLine();
+            System.out.print("Production Cost (in crores): ");
+            double productionCost = scanner.nextDouble();
+            scanner.nextLine(); // Consume the newline character
+
+            try {
+                validateMovieName(movieName);
+                validateProductionCost(productionCost);
+            } catch (ShorterMovieNameException | LesserProductionCostException e) {
+                System.out.println(e.getMessage());
+                return;
+            }
+
+            Movie movie = new Movie(movieName, releaseDate, true);
+            movie.setProductionCost(productionCost);
+
+            insertMovie(conn, movie);
+
+            System.out.println("Movie inserted successfully.");
+
+            // Retrieve and print all movies
+            ArrayList<Movie> movies = getAllMovies(conn);
+            System.out.println("\nAll Movies:");
+            for (Movie m : movies) {
+                System.out.println(m.getMovieName());
+            }
+
+            // Retrieve and print a specific movie
+            System.out.print("\nEnter a movie name to retrieve: ");
+            String movieToRetrieve = scanner.nextLine();
+            Movie retrievedMovie = getMovie(conn, movieToRetrieve);
+            if (retrievedMovie != null) {
+                System.out.println("\nRetrieved Movie:");
+                System.out.println("Name: " + retrievedMovie.getMovieName());
+                System.out.println("Release Date: " + retrievedMovie.getReleaseDate());
+                System.out.println("Production Cost: " + retrievedMovie.getProductionCost());
+            } else {
+                System.out.println("Movie not found.");
+            }
+
+            // Delete a movie
+            System.out.print("\nEnter a movie name to delete: ");
+            String movieToDelete = scanner.nextLine();
+            deleteMovie(conn, movieToDelete);
+            System.out.println("Movie deleted successfully.");
+
+            scanner.close();
+        } catch (SQLException e) {
+            System.out.println("Database connection error: " + e.getMessage());
+        }
+    }
+
+    private static void createMoviesTable(Connection conn) throws SQLException {
+        String createTableSql = "CREATE TABLE IF NOT EXISTS Movies (" +
+                "movieName VARCHAR(100) PRIMARY KEY," +
+                "releaseDate DATE," +
+                "productionCost DECIMAL(10, 2)," +
+                "noOfScreensReleased INT," +
+                "directedBy VARCHAR(100)," +
+                "producedBy VARCHAR(100)," +
+                "status BOOLEAN)";
+        Statement stmt = conn.createStatement();
+        stmt.execute(createTableSql);
+    }
+
+    private static void insertMovie(Connection conn, Movie movie) throws SQLException {
+        String insertSql = "INSERT INTO Movies (movieName, releaseDate, productionCost, status) " +
+                "VALUES (?, ?, ?, ?)";
+        PreparedStatement pstmt = conn.prepareStatement(insertSql);
+        pstmt.setString(1, movie.getMovieName());
+        pstmt.setString(2, movie.getReleaseDate());
+        pstmt.setDouble(3, movie.getProductionCost());
+        pstmt.setBoolean(4, movie.isStatus());
+        pstmt.executeUpdate();
+    }
+
+    private static ArrayList<Movie> getAllMovies(Connection conn) throws SQLException {
+        String selectSql = "SELECT * FROM Movies";
+        Statement stmt = conn.createStatement();
+        ResultSet rs = stmt.executeQuery(selectSql);
+
+        ArrayList<Movie> movies = new ArrayList<>();
+        while (rs.next()) {
+            String movieName = rs.getString("movieName");
+            String releaseDate = rs.getString("releaseDate");
+            double productionCost = rs.getDouble("productionCost");
+            int noOfScreensReleased = rs.getInt("noOfScreensReleased");
+            String directedBy = rs.getString("directedBy");
+            String producedBy = rs.getString("producedBy");
+            boolean status = rs.getBoolean("status");
+
+            Movie movie = new Movie();
+            movie.setMovieName(movieName);
+            movie.setReleaseDate(releaseDate);
+            movie.setProductionCost(productionCost);
+            movie.setNoOfScreensReleased(noOfScreensReleased);
+            movie.setDirectedBy(directedBy);
+            movie.setProducedBy(producedBy);
+            movie.setStatus(status);
+
+            movies.add(movie);
+        }
+
+        return movies;
+    }
+
+    private static Movie getMovie(Connection conn, String movieName) throws SQLException {
+        String selectSql = "SELECT * FROM Movies WHERE movieName = ?";
+        PreparedStatement pstmt = conn.prepareStatement(selectSql);
+        pstmt.setString(1, movieName);
+        ResultSet rs = pstmt.executeQuery();
+
+        if (rs.next()) {
+            String releaseDate = rs.getString("releaseDate");
+            double productionCost = rs.getDouble("productionCost");
+            int noOfScreensReleased = rs.getInt("noOfScreensReleased");
+            String directedBy = rs.getString("directedBy");
+            String producedBy = rs.getString("producedBy");
+            boolean status = rs.getBoolean("status");
+
+            Movie movie = new Movie();
+            movie.setMovieName(movieName);
+            movie.setReleaseDate(releaseDate);
+            movie.setProductionCost(productionCost);
+            movie.setNoOfScreensReleased(noOfScreensReleased);
+            movie.setDirectedBy(directedBy);
+            movie.setProducedBy(producedBy);
+            movie.setStatus(status);
+
+            return movie;
+        }
+
+        return null;
+    }
+
+    private static void deleteMovie(Connection conn, String movieName) throws SQLException {
+        String deleteSql = "DELETE FROM Movies WHERE movieName = ?";
+        PreparedStatement pstmt = conn.prepareStatement(deleteSql);
+        pstmt.setString(1, movieName);
+        pstmt.executeUpdate();
+    }
+
+    private static void validateMovieName(String movieName) throws ShorterMovieNameException {
+        if (movieName.length() < 3) {
+            throw new ShorterMovieNameException("Movie name must be at least 3 characters long.");
+        }
+    }
+
+    private static void validateProductionCost(double productionCost) throws LesserProductionCostException {
+        if (productionCost < 10) {
+            throw new LesserProductionCostException("Production cost must be more than 10 crores.");
+        }
+    }
+}

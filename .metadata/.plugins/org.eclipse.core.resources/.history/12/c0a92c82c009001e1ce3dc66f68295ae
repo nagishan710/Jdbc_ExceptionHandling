@@ -1,0 +1,8 @@
+package com.movie;
+
+public class ShorterMovieNameException extends Exception {
+    public ShorterMovieNameException(String message) {
+        super(message);
+    }
+}
+
